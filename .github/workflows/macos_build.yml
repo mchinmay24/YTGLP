@@ -1,0 +1,33 @@
+name: Build macOS Executable
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install PyInstaller
+        run: |
+          python3 -m pip install --upgrade pip
+          pip install pyinstaller
+
+      - name: Build Executable
+        run: pyinstaller --onefile ytglp.py  
+
+      - name: Upload Executable
+        uses: actions/upload-artifact@v3
+        with:
+          name: macos-executable
+          path: dist/ytglp
