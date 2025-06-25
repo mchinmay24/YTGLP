@@ -1,4 +1,4 @@
-name: Build macOS Executable
+name: Build macOS .app GUI
 
 on:
   push:
@@ -23,11 +23,11 @@ jobs:
           python3 -m pip install --upgrade pip
           pip install pyinstaller
 
-      - name: Build Executable
-        run: pyinstaller --onefile ytglp.py  
+      - name: Build .app Bundle
+        run: pyinstaller --windowed --name ytglp ytglp.py
 
-      - name: Upload Executable
-        uses: actions/upload-artifact@v3
+      - name: Upload .app Bundle
+        uses: actions/upload-artifact@v4
         with:
-          name: macos-executable
-          path: dist/ytglp
+          name: ytglp-app
+          path: dist/ytglp.app
