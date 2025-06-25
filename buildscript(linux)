@@ -1,6 +1,0 @@
-pip install customtkinter
-pip install pyinstaller
-pyinstaller --onefile --noconsole --icon=./ytdlp.ico ytglp.py
-mv dist/* ./
-rm dist build -rf
-rm ytglp.spec
