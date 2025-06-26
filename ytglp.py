@@ -91,6 +91,12 @@ def on_format_change(choice):
             delete_tooltip.hide_tip()
             delete_tooltip = None
 
+def get_time_from_entries(hour_entry, min_entry, sec_entry):
+    h = hour_entry.get().zfill(2) if hour_entry.get().strip() else "00"
+    m = min_entry.get().zfill(2) if min_entry.get().strip() else "00"
+    s = sec_entry.get().zfill(2) if sec_entry.get().strip() else "00"
+    return f"{h}:{m}:{s}"
+
 # Main download function
 def download_video():
     if not download_path:
@@ -98,8 +104,8 @@ def download_video():
         return
 
     url = url_entry.get()
-    start_time = start_time_entry.get()
-    end_time = end_time_entry.get()
+    start_time = get_time_from_entries(start_hour_entry, start_min_entry, start_sec_entry)
+    end_time = get_time_from_entries(end_hour_entry, end_min_entry, end_sec_entry)
     selected_format = format_option_menu.get()
     delete_original = delete_checkbox.get()
 
@@ -119,9 +125,11 @@ def download_video():
             '--progress-template', 'download:%(progress._percent_str)s'
         ]
 
-        if start_time and end_time:
+        # Determine if trimming is needed
+        if any(x != "00" for x in (start_time.split(":") + end_time.split(":"))):
             section_arg = f"*{start_time}-{end_time}"
             download_cmd += ['--download-sections', section_arg, '--force-keyframes-at-cuts']
+
 
         download_cmd.append(url)
 
@@ -143,20 +151,11 @@ def download_video():
             return
 
         if selected_format != "default":
-            base_name, _ = os.path.splitext(downloaded_file)
-            converted_file = f"{base_name}.{selected_format}"
-            log_box.insert("end", f"[Converting to {selected_format}...]\n")
-            progress_bar.set(0)
-            if run_command(['ffmpeg', '-y', '-i', downloaded_file, converted_file], log_box) != 0:
-                messagebox.showerror("Error", f"Conversion to {selected_format} failed.")
-                return
-
-            if delete_original:
-                try:
-                    os.remove(downloaded_file)
-                    log_box.insert("end", "[Original file deleted.]\n")
-                except Exception as e:
-                    log_box.insert("end", f"[Failed to delete original file: {e}]\n")
+            if selected_format in ["mp3", "wav"]:  # Audio
+                download_cmd += ['-x', '--audio-format', selected_format]
+            else:  # Video container
+                download_cmd += ['--merge-output-format', selected_format]
+                    
         else:
             log_box.insert("end", "[Download completed with no conversion.]\n")
 
@@ -195,14 +194,29 @@ format_option_menu.grid(row=0, column=1, padx=5)
 delete_checkbox = ctk.CTkCheckBox(format_frame, text="Delete original after conversion", text_color="white", state="disabled")
 delete_checkbox.grid(row=0, column=2, padx=10)
 
-# Time inputs
-ctk.CTkLabel(app, text="Start Time (e.g. 00:01:00):", font=("Arial", 14), text_color="white").pack(pady=(15, 5))
-start_time_entry = ctk.CTkEntry(app, width=300, fg_color="#3a3a3f", border_color="#5a5a5f")
-start_time_entry.pack()
+# Start Time Inputs
+ctk.CTkLabel(app, text="Start Time (HH:MM:SS):", font=("Arial", 14), text_color="white").pack(pady=(15, 5))
+start_time_frame = ctk.CTkFrame(app, fg_color="transparent")
+start_time_frame.pack()
 
-ctk.CTkLabel(app, text="End Time (e.g. 00:03:00):", font=("Arial", 14), text_color="white").pack(pady=(10, 5))
-end_time_entry = ctk.CTkEntry(app, width=300, fg_color="#3a3a3f", border_color="#5a5a5f")
-end_time_entry.pack()
+start_hour_entry = ctk.CTkEntry(start_time_frame, width=50, placeholder_text="HH")
+start_min_entry = ctk.CTkEntry(start_time_frame, width=50, placeholder_text="MM")
+start_sec_entry = ctk.CTkEntry(start_time_frame, width=50, placeholder_text="SS")
+start_hour_entry.grid(row=0, column=0, padx=5)
+start_min_entry.grid(row=0, column=1, padx=5)
+start_sec_entry.grid(row=0, column=2, padx=5)
+
+# End Time Inputs
+ctk.CTkLabel(app, text="End Time (HH:MM:SS):", font=("Arial", 14), text_color="white").pack(pady=(10, 5))
+end_time_frame = ctk.CTkFrame(app, fg_color="transparent")
+end_time_frame.pack()
+
+end_hour_entry = ctk.CTkEntry(end_time_frame, width=50, placeholder_text="HH")
+end_min_entry = ctk.CTkEntry(end_time_frame, width=50, placeholder_text="MM")
+end_sec_entry = ctk.CTkEntry(end_time_frame, width=50, placeholder_text="SS")
+end_hour_entry.grid(row=0, column=0, padx=5)
+end_min_entry.grid(row=0, column=1, padx=5)
+end_sec_entry.grid(row=0, column=2, padx=5)
 
 # Folder selection and controls
 folder_label = ctk.CTkLabel(app, text="No folder selected.", font=("Arial", 12), text_color="lightgray")
