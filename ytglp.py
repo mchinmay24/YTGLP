@@ -1,248 +1,200 @@
 import customtkinter as ctk
-import subprocess
-from tkinter import messagebox, filedialog
-import os
 import threading
-import re
+from tkinter import messagebox, filedialog
+from pathlib import Path
+from platformdirs import user_music_dir, user_videos_dir
+import yt_dlp
+import os
 
-# Appearance settings
 ctk.set_appearance_mode("Dark")
 ctk.set_default_color_theme("blue")
 
-# Session-only variables
+# Globals
 download_path = None
 last_folder_selected = None
+BUTTON_COLOR, HOVER_COLOR = "#9141ac", "#7e3795"
 
-# Button colors
-button_color = "#9141ac"
-hover_button_color = "#7e3795"
-
-# Tooltip class
-class ToolTip:
-    def __init__(self, widget, text):
-        self.widget = widget
-        self.text = text
-        self.tipwindow = None
-        self.widget.bind("<Enter>", self.show_tip)
-        self.widget.bind("<Leave>", self.hide_tip)
-
-    def show_tip(self, event=None):
-        if self.tipwindow or not self.text:
-            return
-        x = self.widget.winfo_rootx() + 20
-        y = self.widget.winfo_rooty() + self.widget.winfo_height() + 10
-        self.tipwindow = tw = ctk.CTkToplevel(self.widget)
-        tw.overrideredirect(True)
-        tw.geometry(f"+{x}+{y}")
-        label = ctk.CTkLabel(tw, text=self.text, fg_color="#333333", text_color="white", corner_radius=5, padx=5, pady=3)
-        label.pack()
-
-    def hide_tip(self, event=None):
-        if self.tipwindow:
-            self.tipwindow.destroy()
-            self.tipwindow = None
-
-# Folder selection logic
 def choose_folder():
     global download_path, last_folder_selected
-    selected_folder = filedialog.askdirectory(initialdir=last_folder_selected or "/")
-    if selected_folder:
-        download_path = selected_folder
-        if remember_checkbox.get():
-            last_folder_selected = selected_folder
+    folder = filedialog.askdirectory(initialdir=last_folder_selected or "/")
+    if folder:
+        download_path = folder
+        if remember_var.get():
+            last_folder_selected = folder
         folder_label.configure(text=f"Download to: {download_path}")
-        download_button.configure(state="normal")
+        download_btn.configure(state="normal")
     else:
         folder_label.configure(text="No folder selected.")
-        download_button.configure(state="disabled")
+        download_btn.configure(state="disabled")
 
-# Run shell command
-def run_command(command, log_widget, on_progress=None):
-    process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1)
-    for line in process.stdout:
-        log_widget.insert("end", line)
-        log_widget.see("end")
-        if on_progress:
-            on_progress(line)
-    process.wait()
-    return process.returncode
+def make_spinbox_frame(parent, label):
+    frame = ctk.CTkFrame(parent, fg_color="transparent")
+    ctk.CTkLabel(frame, text=label, font=("Arial", 14), text_color="white").grid(row=0, column=0, padx=5)
+    vars = []
+    for i in range(3):
+        var = ctk.StringVar(value="00")
+        entry = ctk.CTkEntry(frame, width=50, textvariable=var)
+        entry.grid(row=0, column=i+1, padx=5)
+        entry.configure(validate="key",
+                        validatecommand=(root.register(lambda s: s.isdigit() and 0 <= int(s) <= 99), "%P"))
+        vars.append(var)
+    frame.pack(pady=(10,0))
+    return vars
 
-# Progress parser
-def parse_progress(line):
-    match = re.search(r'\b(\d{1,3}\.\d)%', line)
-    if match:
-        try:
-            percent = float(match.group(1)) / 100
-            progress_bar.set(percent)
-        except:
-            pass
-
-# Format dropdown logic
 def on_format_change(choice):
-    global delete_tooltip
-    if choice == "default":
-        delete_checkbox.configure(state="disabled")
-        delete_checkbox.deselect()
-        delete_tooltip = ToolTip(delete_checkbox, "Cannot delete original if no conversion is selected.")
+    global download_path
+    if choice in ("mp3", "wav"):
+        quality_dropdown.configure(state="disabled")
+        default_folder = Path(user_music_dir())
     else:
-        delete_checkbox.configure(state="normal")
-        delete_checkbox.select()
-        if 'delete_tooltip' in globals():
-            delete_tooltip.hide_tip()
-            delete_tooltip = None
+        quality_dropdown.configure(state="normal")
+        default_folder = Path(user_videos_dir())
 
-def get_time_from_entries(hour_entry, min_entry, sec_entry):
-    h = hour_entry.get().zfill(2) if hour_entry.get().strip() else "00"
-    m = min_entry.get().zfill(2) if min_entry.get().strip() else "00"
-    s = sec_entry.get().zfill(2) if sec_entry.get().strip() else "00"
-    return f"{h}:{m}:{s}"
 
-# Main download function
-def download_video():
-    if not download_path:
-        messagebox.showwarning("No Folder", "Please choose a download folder.")
-        return
+    if not download_path or not remember_var.get():
+        download_path = str(default_folder)
+        folder_label.configure(text=f"Download to: {download_path}")
+        download_btn.configure(state="normal")
 
-    url = url_entry.get()
-    start_time = get_time_from_entries(start_hour_entry, start_min_entry, start_sec_entry)
-    end_time = get_time_from_entries(end_hour_entry, end_min_entry, end_sec_entry)
-    selected_format = format_option_menu.get()
-    delete_original = delete_checkbox.get()
-
+def fetch_formats():
+    url = url_entry.get().strip()
     if not url:
-        messagebox.showwarning("Missing URL", "Please enter a YouTube URL.")
-        return
-
+        return messagebox.showwarning("Missing URL", "Please enter a YouTube URL or playlist.")
     log_box.delete("1.0", "end")
-    progress_bar.set(0)
+    log_box.insert("end", "[Fetching available formats...]\n")
 
     def task():
-        output_template = os.path.join(download_path, "%(title)s.%(ext)s")
-        download_cmd = [
-            'yt-dlp',
-            '-f', 'bestvideo+bestaudio/best',
-            '-o', output_template,
-            '--progress-template', 'download:%(progress._percent_str)s'
-        ]
-
-        # Determine if trimming is needed
-        if any(x != "00" for x in (start_time.split(":") + end_time.split(":"))):
-            section_arg = f"*{start_time}-{end_time}"
-            download_cmd += ['--download-sections', section_arg, '--force-keyframes-at-cuts']
-
-
-        download_cmd.append(url)
-
-        log_box.insert("end", "[Starting yt-dlp download...]\n")
-        if run_command(download_cmd, log_box, on_progress=parse_progress) != 0:
-            messagebox.showerror("Error", "Download failed.")
-            return
-
         try:
-            filename_cmd = [
-                'yt-dlp', '--print', 'filename',
-                '-f', 'bestvideo+bestaudio/best',
-                '-o', output_template,
-                url
-            ]
-            downloaded_file = subprocess.check_output(filename_cmd).decode().strip()
-        except Exception:
-            messagebox.showerror("Error", "Could not determine downloaded filename.")
-            return
-
-        if selected_format != "default":
-            if selected_format in ["mp3", "wav"]:  # Audio
-                download_cmd += ['-x', '--audio-format', selected_format]
-            else:  # Video container
-                download_cmd += ['--merge-output-format', selected_format]
-                    
-        else:
-            log_box.insert("end", "[Download completed with no conversion.]\n")
-
-        progress_bar.set(1)
-        msg = "Download completed with no conversion." if selected_format == "default" else f"Downloaded and converted to {selected_format}."
-        messagebox.showinfo("Success", msg)
+            opts = {'quiet': True, 'skip_download': True}
+            with yt_dlp.YoutubeDL(opts) as ydl:
+                info = ydl.extract_info(url, download=False)
+            formats = info.get('formats', [])
+            quality_options = {"best"}
+            for f in formats:
+                h = f.get('height')
+                if h:
+                    quality_options.add(f"{h}p")
+            quality_options = sorted(quality_options, key=lambda x: int(x.rstrip('p')) if x != "best" else 9999, reverse=True)
+            quality_dropdown.configure(values=quality_options)
+            quality_dropdown.set("best")
+            log_box.insert("end", "[Formats fetched.]\n")
+        except Exception as e:
+            log_box.insert("end", f"Error fetching formats:\n{e}\n")
 
     threading.Thread(target=task, daemon=True).start()
 
-# GUI Setup
-app = ctk.CTk()
-app.title("YT Video Downloader")
-app.geometry("600x750")
-app.configure(fg_color="#2e2e32")
-app.attributes("-alpha", 0.95)
+def download_video():
+    global download_path
+    if not download_path:
+        return messagebox.showwarning("No Folder", "Choose a download folder first.")
 
-ctk.CTkLabel(app, text="YouTube URL:", font=("Arial", 14), text_color="white").pack(pady=(15, 5))
-url_entry = ctk.CTkEntry(app, width=500, fg_color="#3a3a3f", border_color="#5a5a5f")
+    url = url_entry.get().strip()
+    fmt = format_dropdown.get()
+    qual = quality_dropdown.get()
+    st_vals = [v.get().zfill(2) for v in start_spin]
+    et_vals = [v.get().zfill(2) for v in end_spin]
+    st = ":".join(st_vals)
+    et = ":".join(et_vals)
+
+    if not url:
+        return messagebox.showwarning("Missing URL", "Enter a URL or playlist link.")
+
+    log_box.delete("1.0", "end")
+    progress_bar.set(0)
+    log_box.insert("end", "[Starting download...]\n")
+
+    def progress_hook(d):
+        if d.get('status') == 'downloading':
+            downloaded = d.get('downloaded_bytes', 0)
+            total = d.get('total_bytes', 1)
+            progress_bar.set(downloaded / total)
+
+    def task():
+        ydl_opts = {
+            'outtmpl': os.path.join(download_path, '%(title)s.%(ext)s'),
+            'progress_hooks': [progress_hook],
+        }
+
+        if fmt in ("mp3", "wav"):
+            ydl_opts['format'] = "bestaudio/best"
+            ydl_opts['postprocessors'] = [{
+                'key': 'FFmpegExtractAudio',
+                'preferredcodec': fmt,
+            }]
+        elif fmt != "default":
+            # Map quality to format selector
+            fmt_map = {
+                "best": "bestvideo+bestaudio/best",
+            }
+            # Handle numeric qualities like "1080p", "720p", etc.
+            if qual.endswith('p') and qual[:-1].isdigit():
+                height_limit = int(qual[:-1])
+                fmt_map[qual] = f"bestvideo[height<={height_limit}]+bestaudio/best"
+            ydl_opts['format'] = fmt_map.get(qual, "bestvideo+bestaudio/best")
+            ydl_opts['merge_output_format'] = fmt
+
+        # Trim start/end times if set
+        if any(x != "00" for x in st_vals + et_vals):
+            ydl_opts['download_sections'] = [f"*{st}-{et}"]
+            ydl_opts['force_keyframes_at_cuts'] = True
+
+        try:
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                ydl.download([url])
+            progress_bar.set(1)
+            messagebox.showinfo("Success", "Download completed!")
+        except Exception as exc:
+            messagebox.showerror("Error", f"Download failed:\n{exc}")
+
+    threading.Thread(target=task, daemon=True).start()
+
+# ==== GUI ====
+root = ctk.CTk()
+root.title("YTGLP")
+root.geometry("600x830")
+root.configure(fg_color="#2e2e32")
+root.attributes("-alpha", 0.95)
+
+ctk.CTkLabel(root, text="YouTube URL / Playlist:", font=("Arial", 14), text_color="white").pack(pady=(15,5))
+url_entry = ctk.CTkEntry(root, width=500, fg_color="#3a3a3f", border_color="#5a5a5f")
 url_entry.pack()
 
-# Format + Delete checkbox frame
-format_frame = ctk.CTkFrame(app, fg_color="transparent")
-format_frame.pack(pady=(15, 5))
+ctk.CTkButton(root, text="Fetch Video Qualities", command=fetch_formats,
+              fg_color=BUTTON_COLOR, hover_color=HOVER_COLOR).pack(pady=10)
 
-ctk.CTkLabel(format_frame, text="Convert To Format:", font=("Arial", 14), text_color="white").grid(row=0, column=0, padx=5, pady=5)
-format_option_menu = ctk.CTkOptionMenu(
-    format_frame,
-    values=["default", "mp4", "mp3", "mkv", "webm", "wav"],
-    fg_color="#3a3a3f",
-    button_color="#5a5a5f",
-    command=on_format_change
-)
-format_option_menu.set("default")
-format_option_menu.grid(row=0, column=1, padx=5)
+ctk.CTkLabel(root, text="Format Type:", font=("Arial", 14), text_color="white").pack(pady=(5, 2))
+format_dropdown = ctk.CTkOptionMenu(root, values=["default","mp4","mkv","webm","mp3","wav"],
+                                    fg_color="#3a3a3f", button_color="#5a5a5f", command=on_format_change)
+format_dropdown.set("default")
+format_dropdown.pack(pady=(0, 10))
 
-delete_checkbox = ctk.CTkCheckBox(format_frame, text="Delete original after conversion", text_color="white", state="disabled")
-delete_checkbox.grid(row=0, column=2, padx=10)
+ctk.CTkLabel(root, text="Video Quality:", font=("Arial", 14), text_color="white").pack(pady=(5, 2))
+quality_dropdown = ctk.CTkOptionMenu(root, values=["best"], fg_color="#3a3a3f", button_color="#5a5a5f")
+quality_dropdown.set("best")
+quality_dropdown.pack(pady=(0, 10))
 
-# Start Time Inputs
-ctk.CTkLabel(app, text="Start Time (HH:MM:SS):", font=("Arial", 14), text_color="white").pack(pady=(15, 5))
-start_time_frame = ctk.CTkFrame(app, fg_color="transparent")
-start_time_frame.pack()
+start_spin = make_spinbox_frame(root, "Start Time (HH:MM:SS):")
+end_spin   = make_spinbox_frame(root, "End Time (HH:MM:SS):")
 
-start_hour_entry = ctk.CTkEntry(start_time_frame, width=50, placeholder_text="HH")
-start_min_entry = ctk.CTkEntry(start_time_frame, width=50, placeholder_text="MM")
-start_sec_entry = ctk.CTkEntry(start_time_frame, width=50, placeholder_text="SS")
-start_hour_entry.grid(row=0, column=0, padx=5)
-start_min_entry.grid(row=0, column=1, padx=5)
-start_sec_entry.grid(row=0, column=2, padx=5)
+folder_label = ctk.CTkLabel(root, text="No folder selected.", font=("Arial",12), text_color="lightgray")
+folder_label.pack(pady=(15,5))
+ctk.CTkButton(root, text="Choose Folder", command=choose_folder,
+              fg_color=BUTTON_COLOR, hover_color=HOVER_COLOR).pack()
+remember_var = ctk.IntVar()
+remember_checkbox = ctk.CTkCheckBox(root, text="Remember folder (session)", text_color="white", variable=remember_var)
+remember_checkbox.pack(pady=(5,10))
 
-# End Time Inputs
-ctk.CTkLabel(app, text="End Time (HH:MM:SS):", font=("Arial", 14), text_color="white").pack(pady=(10, 5))
-end_time_frame = ctk.CTkFrame(app, fg_color="transparent")
-end_time_frame.pack()
+download_btn = ctk.CTkButton(root, text="Download", command=download_video,
+                             fg_color=BUTTON_COLOR, hover_color=HOVER_COLOR, state="disabled")
+download_btn.pack(pady=10)
 
-end_hour_entry = ctk.CTkEntry(end_time_frame, width=50, placeholder_text="HH")
-end_min_entry = ctk.CTkEntry(end_time_frame, width=50, placeholder_text="MM")
-end_sec_entry = ctk.CTkEntry(end_time_frame, width=50, placeholder_text="SS")
-end_hour_entry.grid(row=0, column=0, padx=5)
-end_min_entry.grid(row=0, column=1, padx=5)
-end_sec_entry.grid(row=0, column=2, padx=5)
-
-# Folder selection and controls
-folder_label = ctk.CTkLabel(app, text="No folder selected.", font=("Arial", 12), text_color="lightgray")
-folder_label.pack(pady=(15, 5))
-
-ctk.CTkButton(app, text="Choose Folder", command=choose_folder, fg_color=button_color, hover_color=hover_button_color).pack()
-
-remember_checkbox = ctk.CTkCheckBox(app, text="Remember folder (this session)", text_color="white")
-remember_checkbox.pack(pady=(5, 10))
-
-download_button = ctk.CTkButton(
-    app,
-    text="Download",
-    command=download_video,
-    fg_color=button_color,
-    hover_color=hover_button_color,
-    state="disabled"
-)
-download_button.pack(pady=10)
-
-progress_bar = ctk.CTkProgressBar(app, width=500)
+progress_bar = ctk.CTkProgressBar(root, width=500)
 progress_bar.set(0)
 progress_bar.pack(pady=(10, 10))
 
-ctk.CTkLabel(app, text="Download Log:", font=("Arial", 14), text_color="white").pack(pady=(5, 5))
-log_box = ctk.CTkTextbox(app, width=550, height=200, fg_color="#1e1e22", text_color="white")
+ctk.CTkLabel(root, text="Download Log:", font=("Arial", 14), text_color="white").pack(pady=(5, 5))
+log_box = ctk.CTkTextbox(root, width=550, height=200, fg_color="#1e1e22", text_color="white")
 log_box.pack(pady=(0, 20))
 
-app.mainloop()
+root.mainloop()
+
