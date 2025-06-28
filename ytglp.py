@@ -1,6 +1,7 @@
 import customtkinter as ctk
+from tkinter import ttk
 import threading
-from tkinter import messagebox, filedialog
+from tkinter import messagebox, filedialog, Spinbox
 from pathlib import Path
 from platformdirs import user_music_dir, user_videos_dir
 import yt_dlp
@@ -28,18 +29,31 @@ def choose_folder():
         download_btn.configure(state="disabled")
 
 def make_spinbox_frame(parent, label):
+    style = ttk.Style()
+    style.theme_use("default")
+    style.configure("DarkSpinbox.TSpinbox",
+                    foreground="white",
+                    background="#3a3a3f",
+                    fieldbackground="#3a3a3f",
+                    selectbackground="#5a5a5f",
+                    selectforeground="white",
+                    borderwidth=1)
+
     frame = ctk.CTkFrame(parent, fg_color="transparent")
     ctk.CTkLabel(frame, text=label, font=("Arial", 14), text_color="white").grid(row=0, column=0, padx=5)
-    vars = []
-    for i in range(3):
-        var = ctk.StringVar(value="00")
-        entry = ctk.CTkEntry(frame, width=50, textvariable=var)
-        entry.grid(row=0, column=i+1, padx=5)
-        entry.configure(validate="key",
-                        validatecommand=(root.register(lambda s: s.isdigit() and 0 <= int(s) <= 99), "%P"))
-        vars.append(var)
-    frame.pack(pady=(10,0))
-    return vars
+    boxes = []
+    for i, maxval in enumerate([99, 59, 59]):  # HH max 99, MM/SS max 59
+        box = ttk.Spinbox(frame, from_=0, to=maxval, width=5, format="%02.0f",
+                          style="DarkSpinbox.TSpinbox", state="normal", justify="center")
+        box.grid(row=0, column=i+1, padx=5)
+        boxes.append(box)
+    frame.pack(pady=(10, 0))
+    return boxes
+
+def toggle_trim_inputs():
+    state = "normal" if trim_var.get() else "disabled"
+    for box in start_spin + end_spin:
+        box.configure(state=state)
 
 def on_format_change(choice):
     global download_path
@@ -49,7 +63,6 @@ def on_format_change(choice):
     else:
         quality_dropdown.configure(state="normal")
         default_folder = Path(user_videos_dir())
-
 
     if not download_path or not remember_var.get():
         download_path = str(default_folder)
@@ -75,7 +88,7 @@ def fetch_formats():
                 if h:
                     quality_options.add(f"{h}p")
             quality_options = sorted(quality_options, key=lambda x: int(x.rstrip('p')) if x != "best" else 9999, reverse=True)
-            quality_dropdown.configure(values=quality_options)
+            quality_dropdown.configure(values=list(quality_options))
             quality_dropdown.set("best")
             log_box.insert("end", "[Formats fetched.]\n")
         except Exception as e:
@@ -91,8 +104,8 @@ def download_video():
     url = url_entry.get().strip()
     fmt = format_dropdown.get()
     qual = quality_dropdown.get()
-    st_vals = [v.get().zfill(2) for v in start_spin]
-    et_vals = [v.get().zfill(2) for v in end_spin]
+    st_vals = [box.get().zfill(2) for box in start_spin]
+    et_vals = [box.get().zfill(2) for box in end_spin]
     st = ":".join(st_vals)
     et = ":".join(et_vals)
 
@@ -122,19 +135,16 @@ def download_video():
                 'preferredcodec': fmt,
             }]
         elif fmt != "default":
-            # Map quality to format selector
             fmt_map = {
                 "best": "bestvideo+bestaudio/best",
             }
-            # Handle numeric qualities like "1080p", "720p", etc.
             if qual.endswith('p') and qual[:-1].isdigit():
                 height_limit = int(qual[:-1])
                 fmt_map[qual] = f"bestvideo[height<={height_limit}]+bestaudio/best"
             ydl_opts['format'] = fmt_map.get(qual, "bestvideo+bestaudio/best")
             ydl_opts['merge_output_format'] = fmt
 
-        # Trim start/end times if set
-        if any(x != "00" for x in st_vals + et_vals):
+        if trim_var.get() and any(x != "00" for x in st_vals + et_vals):
             ydl_opts['download_sections'] = [f"*{st}-{et}"]
             ydl_opts['force_keyframes_at_cuts'] = True
 
@@ -151,11 +161,11 @@ def download_video():
 # ==== GUI ====
 root = ctk.CTk()
 root.title("YTGLP")
-root.geometry("600x830")
+root.geometry("600x850")
 root.configure(fg_color="#2e2e32")
 root.attributes("-alpha", 0.95)
 
-ctk.CTkLabel(root, text="YouTube URL / Playlist:", font=("Arial", 14), text_color="white").pack(pady=(15,5))
+ctk.CTkLabel(root, text="YouTube URL / Playlist:", font=("Arial", 14), text_color="white").pack(pady=(15, 5))
 url_entry = ctk.CTkEntry(root, width=500, fg_color="#3a3a3f", border_color="#5a5a5f")
 url_entry.pack()
 
@@ -163,7 +173,7 @@ ctk.CTkButton(root, text="Fetch Video Qualities", command=fetch_formats,
               fg_color=BUTTON_COLOR, hover_color=HOVER_COLOR).pack(pady=10)
 
 ctk.CTkLabel(root, text="Format Type:", font=("Arial", 14), text_color="white").pack(pady=(5, 2))
-format_dropdown = ctk.CTkOptionMenu(root, values=["default","mp4","mkv","webm","mp3","wav"],
+format_dropdown = ctk.CTkOptionMenu(root, values=["default", "mp4", "mkv", "webm", "mp3", "wav"],
                                     fg_color="#3a3a3f", button_color="#5a5a5f", command=on_format_change)
 format_dropdown.set("default")
 format_dropdown.pack(pady=(0, 10))
@@ -173,16 +183,23 @@ quality_dropdown = ctk.CTkOptionMenu(root, values=["best"], fg_color="#3a3a3f", 
 quality_dropdown.set("best")
 quality_dropdown.pack(pady=(0, 10))
 
-start_spin = make_spinbox_frame(root, "Start Time (HH:MM:SS):")
-end_spin   = make_spinbox_frame(root, "End Time (HH:MM:SS):")
+# Trim Switch
+trim_var = ctk.BooleanVar(value=False)
+trim_switch = ctk.CTkSwitch(root, text="Trim Video", variable=trim_var, command=toggle_trim_inputs)
+trim_switch.pack(pady=(10, 5))
 
-folder_label = ctk.CTkLabel(root, text="No folder selected.", font=("Arial",12), text_color="lightgray")
-folder_label.pack(pady=(15,5))
+start_spin = make_spinbox_frame(root, "Start Time (HH:MM:SS):")
+end_spin = make_spinbox_frame(root, "End Time (HH:MM:SS):")
+toggle_trim_inputs()
+
+folder_label = ctk.CTkLabel(root, text="No folder selected.", font=("Arial", 12), text_color="lightgray")
+folder_label.pack(pady=(15, 5))
+
 ctk.CTkButton(root, text="Choose Folder", command=choose_folder,
               fg_color=BUTTON_COLOR, hover_color=HOVER_COLOR).pack()
 remember_var = ctk.IntVar()
 remember_checkbox = ctk.CTkCheckBox(root, text="Remember folder (session)", text_color="white", variable=remember_var)
-remember_checkbox.pack(pady=(5,10))
+remember_checkbox.pack(pady=(5, 10))
 
 download_btn = ctk.CTkButton(root, text="Download", command=download_video,
                              fg_color=BUTTON_COLOR, hover_color=HOVER_COLOR, state="disabled")
