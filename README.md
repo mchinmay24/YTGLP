@@ -6,10 +6,5 @@ Made this originally for usage with soundpad but ended up adding more features l
 
 ![Screenshot](screenshot.png) 
 
-Make sure to install yt-dlp beforehand to get it to work
-
-on windows, open powershell and type "winget install yt-dlp", it will install ffmpeg and yt-dlp both
-on macos, you can use brew : brew install yt-dlp
-on linux, use whatever package manager is available,
 
 you can either build using the build script or download from the release section directly
