@@ -83,10 +83,14 @@ def fetch_formats():
                 info = ydl.extract_info(url, download=False)
             formats = info.get('formats', [])
             quality_options = {"best"}
+            
+            # Filter out formats below 480p
             for f in formats:
                 h = f.get('height')
-                if h:
+                if h and h >= 480:  # Only include formats with height >= 480p
                     quality_options.add(f"{h}p")
+            
+            # Sort the quality options (best to worst)
             quality_options = sorted(quality_options, key=lambda x: int(x.rstrip('p')) if x != "best" else 9999, reverse=True)
             quality_dropdown.configure(values=quality_options)
             quality_dropdown.set("best")
