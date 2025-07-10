@@ -1,1 +1,4 @@
 run.sh
+dist
+build
+*.spec
