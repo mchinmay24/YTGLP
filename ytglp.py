@@ -228,6 +228,7 @@ folder_label.pack(pady=(15,5))
 ctk.CTkButton(root, text="Choose Folder", command=choose_folder,
               fg_color=BUTTON_COLOR, hover_color=HOVER_COLOR).pack()
 
+remember_var = ctk.IntVar()
 
 download_btn = ctk.CTkButton(root, text="Download", command=download_video,
                              fg_color=BUTTON_COLOR, hover_color=HOVER_COLOR, state="disabled")
