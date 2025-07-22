@@ -16,6 +16,9 @@ download_path = user_downloads_dir()
 last_folder_selected = None
 BUTTON_COLOR, HOVER_COLOR = "#9141ac", "#7e3795"
 last_fetched_url = None
+fetch_timer = None
+last_fetched_url = None
+
 
 
 def choose_folder():
@@ -72,6 +75,12 @@ def on_format_change(choice):
         folder_label.configure(text=f"Download to: {download_path}")
         download_btn.configure(state="normal")
 
+def on_url_change(event=None):
+    global fetch_timer
+    if fetch_timer:
+        root.after_cancel(fetch_timer)
+    fetch_timer = root.after(800, auto_fetch_formats)
+
 def auto_fetch_formats():
     global last_fetched_url
     url = url_entry.get().strip()
@@ -95,7 +104,7 @@ def auto_fetch_formats():
 
             for f in formats:
                 height = f.get('height')
-                if height:
+                if height and height >= 360:
                     quality_options.add(f"{height}p")
             quality_options.add("best")
 
@@ -201,6 +210,8 @@ url_entry = ctk.CTkEntry(root, width=500, fg_color="#3a3a3f", border_color="#5a5
 url_entry.pack()
 url_entry.bind("<FocusOut>", lambda event: auto_fetch_formats())
 url_entry.bind("<Return>", lambda event: auto_fetch_formats())
+url_entry.bind("<KeyRelease>", on_url_change)
+
 
 ctk.CTkLabel(root, text="Format Type:", font=("Arial", 14), text_color="white").pack(pady=(5, 2))
 format_dropdown = ctk.CTkOptionMenu(root, values=["default","mp4","mkv","webm","mp3","wav"],
