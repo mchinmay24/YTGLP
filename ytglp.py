@@ -3,7 +3,7 @@ import threading
 import tkinter as tk
 from tkinter import messagebox, filedialog
 from pathlib import Path
-from platformdirs import user_music_dir, user_videos_dir
+from platformdirs import user_music_dir, user_videos_dir, user_downloads_dir
 import yt_dlp
 import os
 
@@ -11,7 +11,8 @@ ctk.set_appearance_mode("Dark")
 ctk.set_default_color_theme("blue")
 
 # Globals
-download_path = None
+#download_path = None
+download_path = user_downloads_dir()
 last_folder_selected = None
 BUTTON_COLOR, HOVER_COLOR = "#9141ac", "#7e3795"
 
@@ -242,4 +243,6 @@ ctk.CTkLabel(root, text="Download Log:", font=("Arial", 14), text_color="white")
 log_box = ctk.CTkTextbox(root, width=550, height=200, fg_color="#1e1e22", text_color="white")
 log_box.pack(pady=(0, 20))
 
+folder_label.configure(text=f"Download to: {download_path}")
+download_btn.configure(state="normal")
 root.mainloop()
