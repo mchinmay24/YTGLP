@@ -15,6 +15,8 @@ ctk.set_default_color_theme("blue")
 download_path = user_downloads_dir()
 last_folder_selected = None
 BUTTON_COLOR, HOVER_COLOR = "#9141ac", "#7e3795"
+last_fetched_url = None
+
 
 def choose_folder():
     global download_path, last_folder_selected
@@ -70,16 +72,17 @@ def on_format_change(choice):
         folder_label.configure(text=f"Download to: {download_path}")
         download_btn.configure(state="normal")
 
-def fetch_formats():
+def auto_fetch_formats():
+    global last_fetched_url
     url = url_entry.get().strip()
-    if not url:
-        return messagebox.showwarning("Missing URL", "Please enter a YouTube URL or playlist.")
-    
+
+    if not url or url == last_fetched_url:
+        return  # Skip if URL is empty or already fetched
+
+    last_fetched_url = url  # Update only if fetching proceeds
+
     log_box.delete("1.0", "end")
     log_box.insert("end", "[Fetching available formats...]\n")
-
-    # Disable the fetch button safely within the thread
-    fetch_btn.configure(state="disabled")
     progress_bar.set(0)
 
     def task():
@@ -88,28 +91,26 @@ def fetch_formats():
             with yt_dlp.YoutubeDL(opts) as ydl:
                 info = ydl.extract_info(url, download=False)
             formats = info.get('formats', [])
-            quality_options = {"best"}
-            
-            # Filter out formats below 480p
+            quality_options = set()
+
             for f in formats:
-                h = f.get('height')
-                if h and h >= 480:  # Only include formats with height >= 480p
-                    quality_options.add(f"{h}p")
-            
-            # Sort the quality options (best to worst)
-            quality_options = sorted(quality_options, key=lambda x: int(x.rstrip('p')) if x != "best" else 9999, reverse=True)
+                height = f.get('height')
+                if height:
+                    quality_options.add(f"{height}p")
+            quality_options.add("best")
 
-            # Update the dropdown in the main thread
-            root.after(lambda: quality_dropdown.configure(values=quality_options))
-            root.after(lambda: quality_dropdown.set("best"))
-            root.after(lambda: log_box.insert("end", "[Formats fetched.]\n"))
+            quality_options = sorted(
+                quality_options,
+                key=lambda x: int(x.rstrip('p')) if x != "best" else 9999,
+                reverse=True
+            )
+
+            root.after(0, lambda: quality_dropdown.configure(values=quality_options))
+            root.after(0, lambda: quality_dropdown.set("best"))
+            root.after(0, lambda: log_box.insert("end", "[Formats fetched.]\n"))
         except Exception as e:
-            root.after(lambda: log_box.insert("end", f"Error fetching formats:\n{e}\n"))
-        
-        # Re-enable the button in the main thread after task is done
-        root.after(lambda: fetch_btn.configure(state="normal"))
+            root.after(0, lambda: log_box.insert("end", f"Error fetching formats:\n{e}\n"))
 
-    # Run the task in a separate thread
     threading.Thread(target=task, daemon=True).start()
 
 def download_video():
@@ -198,6 +199,8 @@ root.attributes("-alpha", 0.95)
 ctk.CTkLabel(root, text="YouTube URL / Playlist:", font=("Arial", 14), text_color="white").pack(pady=(15,5))
 url_entry = ctk.CTkEntry(root, width=500, fg_color="#3a3a3f", border_color="#5a5a5f")
 url_entry.pack()
+url_entry.bind("<FocusOut>", lambda event: auto_fetch_formats())
+url_entry.bind("<Return>", lambda event: auto_fetch_formats())
 
 ctk.CTkLabel(root, text="Format Type:", font=("Arial", 14), text_color="white").pack(pady=(5, 2))
 format_dropdown = ctk.CTkOptionMenu(root, values=["default","mp4","mkv","webm","mp3","wav"],
