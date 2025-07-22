@@ -73,8 +73,13 @@ def fetch_formats():
     url = url_entry.get().strip()
     if not url:
         return messagebox.showwarning("Missing URL", "Please enter a YouTube URL or playlist.")
+    
     log_box.delete("1.0", "end")
     log_box.insert("end", "[Fetching available formats...]\n")
+
+    # Disable the fetch button safely within the thread
+    fetch_btn.configure(state="disabled")
+    progress_bar.set(0)
 
     def task():
         try:
@@ -92,12 +97,18 @@ def fetch_formats():
             
             # Sort the quality options (best to worst)
             quality_options = sorted(quality_options, key=lambda x: int(x.rstrip('p')) if x != "best" else 9999, reverse=True)
-            quality_dropdown.configure(values=quality_options)
-            quality_dropdown.set("best")
-            log_box.insert("end", "[Formats fetched.]\n")
-        except Exception as e:
-            log_box.insert("end", f"Error fetching formats:\n{e}\n")
 
+            # Update the dropdown in the main thread
+            root.after(lambda: quality_dropdown.configure(values=quality_options))
+            root.after(lambda: quality_dropdown.set("best"))
+            root.after(lambda: log_box.insert("end", "[Formats fetched.]\n"))
+        except Exception as e:
+            root.after(lambda: log_box.insert("end", f"Error fetching formats:\n{e}\n"))
+        
+        # Re-enable the button in the main thread after task is done
+        root.after(lambda: fetch_btn.configure(state="normal"))
+
+    # Run the task in a separate thread
     threading.Thread(target=task, daemon=True).start()
 
 def download_video():
@@ -187,9 +198,6 @@ ctk.CTkLabel(root, text="YouTube URL / Playlist:", font=("Arial", 14), text_colo
 url_entry = ctk.CTkEntry(root, width=500, fg_color="#3a3a3f", border_color="#5a5a5f")
 url_entry.pack()
 
-ctk.CTkButton(root, text="Fetch Video Qualities", command=fetch_formats,
-              fg_color=BUTTON_COLOR, hover_color=HOVER_COLOR).pack(pady=10)
-
 ctk.CTkLabel(root, text="Format Type:", font=("Arial", 14), text_color="white").pack(pady=(5, 2))
 format_dropdown = ctk.CTkOptionMenu(root, values=["default","mp4","mkv","webm","mp3","wav"],
                                     fg_color="#3a3a3f", button_color="#5a5a5f", command=on_format_change)
@@ -220,9 +228,6 @@ folder_label.pack(pady=(15,5))
 ctk.CTkButton(root, text="Choose Folder", command=choose_folder,
               fg_color=BUTTON_COLOR, hover_color=HOVER_COLOR).pack()
 
-remember_var = ctk.IntVar()
-remember_checkbox = ctk.CTkCheckBox(root, text="Remember folder (session)", text_color="white", variable=remember_var)
-remember_checkbox.pack(pady=(5,10))
 
 download_btn = ctk.CTkButton(root, text="Download", command=download_video,
                              fg_color=BUTTON_COLOR, hover_color=HOVER_COLOR, state="disabled")
@@ -237,4 +242,3 @@ log_box = ctk.CTkTextbox(root, width=550, height=200, fg_color="#1e1e22", text_c
 log_box.pack(pady=(0, 20))
 
 root.mainloop()
-
