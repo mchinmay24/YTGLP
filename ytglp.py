@@ -6,6 +6,7 @@ from pathlib import Path
 from platformdirs import user_music_dir, user_videos_dir, user_downloads_dir
 import yt_dlp
 import os
+import re
 
 ctk.set_appearance_mode("Dark")
 ctk.set_default_color_theme("blue")
@@ -18,6 +19,8 @@ BUTTON_COLOR, HOVER_COLOR = "#9141ac", "#7e3795"
 last_fetched_url = None
 fetch_timer = None
 last_fetched_url = None
+last_clipboard_url = None  # tracks last URL pasted from clipboard
+
 
 
 
@@ -74,6 +77,37 @@ def on_format_change(choice):
         download_path = str(default_folder)
         folder_label.configure(text=f"Download to: {download_path}")
         download_btn.configure(state="normal")
+
+def auto_paste_clipboard_url():
+    global last_clipboard_url
+    try:
+        clipboard_content = root.clipboard_get()
+        youtube_pattern = r"(https?://)?(www\.)?(youtube\.com|youtu\.be)/.+"
+        if re.match(youtube_pattern, clipboard_content):
+            if clipboard_content != url_entry.get():
+                last_clipboard_url = clipboard_content
+                url_entry.delete(0, tk.END)
+                url_entry.insert(0, clipboard_content)
+                auto_fetch_formats()
+    except tk.TclError:
+        pass  # no clipboard text or error
+
+def check_clipboard_periodically():
+    global last_clipboard_url
+    try:
+        clipboard_content = root.clipboard_get()
+        youtube_pattern = r"(https?://)?(www\.)?(youtube\.com|youtu\.be)/.+"
+        if re.match(youtube_pattern, clipboard_content):
+            # Only update if clipboard URL is new and different from current
+            if clipboard_content != url_entry.get() and clipboard_content != last_clipboard_url:
+                last_clipboard_url = clipboard_content
+                url_entry.delete(0, tk.END)
+                url_entry.insert(0, clipboard_content)
+                auto_fetch_formats()
+    except tk.TclError:
+        pass
+    root.after(3000, check_clipboard_periodically)  # check every 3 seconds
+
 
 def on_url_change(event=None):
     global fetch_timer
@@ -259,4 +293,6 @@ log_box.pack(pady=(0, 20))
 
 folder_label.configure(text=f"Download to: {download_path}")
 download_btn.configure(state="normal")
+auto_paste_clipboard_url()     # one-time check & paste at startup
+check_clipboard_periodically() # start periodic clipboard checks
 root.mainloop()
