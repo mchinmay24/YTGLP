@@ -67,16 +67,20 @@ def toggle_trim():
 def on_format_change(choice):
     global download_path
     if choice in ("mp3", "wav"):
-        quality_dropdown.configure(state="disabled")
-        default_folder = Path(user_music_dir())
+        if default_folder == user_downloads_dir:
+            quality_dropdown.configure(state="disabled")
+            default_folder = Path(user_downloads_dir())
+        
     else:
-        quality_dropdown.configure(state="normal")
-        default_folder = Path(user_videos_dir())
+        if default_folder == user_downloads_dir:
+            quality_dropdown.configure(state="normal")
+            default_folder = Path(user_downloads_dir())
 
     if not download_path or not remember_var.get():
-        download_path = str(default_folder)
-        folder_label.configure(text=f"Download to: {download_path}")
-        download_btn.configure(state="normal")
+        if default_folder == user_downloads_dir:
+            download_path = str(default_folder)
+            folder_label.configure(text=f"Download to: {download_path}")
+            download_btn.configure(state="normal")
 
 def auto_paste_clipboard_url():
     global last_clipboard_url
@@ -280,8 +284,8 @@ ctk.CTkButton(root, text="Choose Folder", command=choose_folder,
 remember_var = ctk.IntVar()
 
 download_btn = ctk.CTkButton(root, text="Download", command=download_video,
-                             fg_color=BUTTON_COLOR, hover_color=HOVER_COLOR, state="disabled")
-download_btn.pack(pady=10)
+                             fg_color="#1f6aa5", hover_color=HOVER_COLOR)
+download_btn.pack(pady=(10,10))
 
 progress_bar = ctk.CTkProgressBar(root, width=500)
 progress_bar.set(0)
