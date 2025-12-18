@@ -1,0 +1,5 @@
+QMainWindow { background-color:#121212; color:#eeeeee; }
+QLabel { color:#eeeeee; }
+QLineEdit, QComboBox, QProgressBar, QFrame { background-color:#1e1e1e; color:#ffffff; }
+QPushButton { background-color:#333333; color:#ffffff; border-radius:4px; padding:6px 10px; }
+QPushButton:hover { background-color:#444444; }
