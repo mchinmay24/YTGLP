@@ -154,56 +154,6 @@ class QueueWorker(QObject):
         self.queue_finished.emit()
 
 
-# class HistoryDialog(QDialog):
-#     """Simple dialog showing download history (URLs)."""
-#
-#     def __init__(self, history: HistoryManager, parent=None):
-#         super().__init__(parent)
-#         self.history = history
-#         self.setWindowTitle("Download History")
-#         self.resize(500, 400)
-#
-#         layout = QVBoxLayout(self)
-#
-#         label = QLabel("Previously downloaded URLs:")
-#         layout.addWidget(label)
-#
-#         self.list_widget = QListWidget()
-#         # show newest first
-#         for url in reversed(self.history.data):
-#             QListWidgetItem(url, self.list_widget)
-#         layout.addWidget(self.list_widget)
-#
-#         btn_row = QHBoxLayout()
-#         self.open_url_btn = QPushButton("Open in Browser")
-#         self.open_url_btn.clicked.connect(self.open_selected_url)
-#         self.clear_btn = QPushButton("Clear History")
-#         self.clear_btn.clicked.connect(self.clear_history)
-#
-#         btn_row.addWidget(self.open_url_btn)
-#         btn_row.addWidget(self.clear_btn)
-#         layout.addLayout(btn_row)
-#
-#     def open_selected_url(self):
-#         item = self.list_widget.currentItem()
-#         if not item:
-#             return
-#         url = item.text().strip()
-#         if url:
-#             QDesktopServices.openUrl(QUrl(url))
-#
-#     def clear_history(self):
-#         reply = QMessageBox.question(
-#             self,
-#             "Clear History",
-#             "Are you sure you want to clear the entire history?",
-#             QMessageBox.Yes | QMessageBox.No,
-#         )
-#         if reply == QMessageBox.Yes:
-#             self.history.clear()
-#             self.list_widget.clear()
-
-
 class MainWindow(QMainWindow):
 
     def __init__(self, settings=None, app=None):
@@ -213,7 +163,7 @@ class MainWindow(QMainWindow):
 
         self.app = app
         self.settings = settings if settings is not None else None
-        # self.history = HistoryManager()
+        
         self.fetcher = MetadataFetcher()
         self.downloader = VideoDownloader()
 
@@ -264,39 +214,18 @@ class MainWindow(QMainWindow):
         root_layout.setContentsMargins(10, 10, 10, 10)
         root_layout.setSpacing(10)
 
+
         # Left side: main controls
         left_layout = QVBoxLayout()
         left_layout.setSpacing(8)
 
-        # Top: title + theme selector + history button
         top_row = QHBoxLayout()
         title = QLabel("Youtube Video Downloader")
         title.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
         title.setStyleSheet("font-size: 22px; font-weight: bold;")
         top_row.addWidget(title)
-        #
-        # history_btn = QPushButton("History")
-        # history_btn.clicked.connect(self.show_history)
-        # top_row.addWidget(history_btn)
-        # not yet ready
-
         top_row.addStretch()
 
-        # current_theme = "dark"
-        # if self.settings is not None:
-        #     current_theme = self.settings.data.get("theme", "dark")
-        #
-        # light_label = QLabel("Light")
-        # dark_label = QLabel("Dark")
-        #
-        # self.theme_switch = ThemeSwitch(checked=(current_theme == "dark"))
-        # self.theme_switch.toggled.connect(self.on_theme_toggled)
-        #
-        # top_row.addWidget(light_label)
-        # top_row.addWidget(self.theme_switch)
-        # top_row.addWidget(dark_label)
-        #
-        # left_layout.addLayout(top_row)
 
         # URL row
         url_row = QHBoxLayout()
@@ -314,6 +243,7 @@ class MainWindow(QMainWindow):
         url_row.addWidget(paste_btn)
         url_row.addWidget(clear_btn)
         left_layout.addLayout(url_row)
+
 
         # Row beneath URL: Download + Add to Queue
         actions_row = QHBoxLayout()
@@ -433,24 +363,16 @@ class MainWindow(QMainWindow):
         output_row.addWidget(self.output_button)
         left_layout.addLayout(output_row)
 
+
         # Progress bar
         self.progress = QProgressBar()
         self.progress.setValue(0)
         left_layout.addWidget(self.progress)
 
-        # JS runtime status note (optional)
-        # if not self.downloader.has_js_runtime:
-        #     js_label = QLabel(
-        #         "⚠ No JavaScript runtime detected (Node/Deno). "
-        #         "Some YouTube formats may be unavailable. "
-        #         "Install Node.js for best results."
-        #     )
-        #     js_label.setStyleSheet("color: #ffb347; font-size: 11px;")
-        #     js_label.setWordWrap(True)
-        #     left_layout.addWidget(js_label)
 
         # Add left layout to root
         root_layout.addLayout(left_layout, stretch=3)
+
 
         # Right side: queue panel (hidden until used)
         self.queue_panel = QFrame()
@@ -472,6 +394,7 @@ class MainWindow(QMainWindow):
 
         self.queue_list = QListWidget()
         queue_layout.addWidget(self.queue_list)
+        
 
         # Row for queue manipulation buttons
         queue_btn_row = QHBoxLayout()
