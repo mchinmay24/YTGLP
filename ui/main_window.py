@@ -36,7 +36,6 @@ from PyQt5.QtCore import (
 
 from core.downloader import VideoDownloader
 from core.metadata import MetadataFetcher
-from core.history import HistoryManager
 from core.clipboard_watcher import ClipboardWatcher
 from PyQt5.QtGui import QPixmap, QPainter, QColor, QPen
 from PyQt5.QtCore import (
@@ -641,11 +640,6 @@ class MainWindow(QMainWindow):
 
         self._queue_worker.item_started.connect(on_item_started)
 
-        def on_item_finished(idx, url):
-            self.history.add(url)
-
-        self._queue_worker.item_finished.connect(on_item_finished)
-
         def on_queue_finished():
             # Clear queue and list
             self.queue.clear()
@@ -726,7 +720,6 @@ class MainWindow(QMainWindow):
         self._dl_worker.status_changed.connect(self.statusBar().showMessage)
 
         def on_finished(finished_url: str):
-            self.history.add(finished_url)
             self.statusBar().showMessage("Download finished.", 5000)
             self._dl_thread.quit()
 

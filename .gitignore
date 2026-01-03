@@ -3,3 +3,5 @@ dist/
 build/
 .spec
 .pyc
+ui/__pycache__
+core/__pycache__
