@@ -14,7 +14,7 @@ class SettingsManager:
 
         self.data = {
             "output_folder": str(default_download_dir),
-            "theme": "dark",
+            
         }
         self.load()
 
