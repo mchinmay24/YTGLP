@@ -1,9 +1,9 @@
-import yt_dlp
+import json
+import subprocess
 import requests
 
-
 class MetadataFetcher:
-    def get_metadata(self, url):
+    def get_metadata(self, url: str):
         info = self.get_raw_info(url)
         if not info:
             return None
@@ -12,12 +12,26 @@ class MetadataFetcher:
             "title": info.get("title", "Unknown"),
             "uploader": info.get("uploader", "Unknown"),
             "duration": info.get("duration", 0),
+            "thumbnail": info.get("thumbnail"),
         }
 
-    def get_raw_info(self, url):
+    def get_raw_info(self, url: str) -> dict:
         try:
-            with yt_dlp.YoutubeDL({"quiet": True, "skip_download": True}) as ydl:
-                return ydl.extract_info(url, download=False)
+            result = subprocess.run(
+                [
+                    "yt-dlp",
+                    "-J",
+                    "--no-playlist",
+                    url,
+                ],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.DEVNULL,
+                text=True,
+                check=True,
+            )
+
+            return json.loads(result.stdout)
+
         except Exception:
             return {}
 
