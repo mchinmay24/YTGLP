@@ -7,3 +7,6 @@ ui/__pycache__
 core/__pycache__
 __pycache__/
 thumbnail.jpg
+.backup
+ui/*.backup
+core/*.backup
