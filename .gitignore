@@ -10,3 +10,4 @@ thumbnail.jpg
 .backup
 ui/*.backup
 core/*.backup
+.vscode/
