@@ -49,56 +49,6 @@ from PyQt5.QtCore import (
     QEasingCurve,
 )
 
-class ThemeSwitch(QWidget):
-    toggled = pyqtSignal(bool)
-
-    def __init__(self, parent=None, checked=False):
-        super().__init__(parent)
-        self._checked = checked
-        self.setFixedSize(46, 24)
-        self.setCursor(Qt.PointingHandCursor)
-
-    def isChecked(self):
-        return self._checked
-
-    def setChecked(self, checked: bool):
-        if self._checked != checked:
-            self._checked = checked
-            self.toggled.emit(self._checked)
-            self.update()
-
-    def mousePressEvent(self, event):
-        if event.button() == Qt.LeftButton:
-            self.setChecked(not self._checked)
-
-    def paintEvent(self, event):
-        radius = int(self.height() / 2)
-        margin = 2
-        knob_radius = radius - margin
-
-        painter = QPainter(self)
-        painter.setRenderHint(QPainter.Antialiasing)
-
-        if self._checked:
-            bg_color = QColor("#4caf50")  # green
-        else:
-            bg_color = QColor("#777777")  # grey
-
-        painter.setPen(Qt.NoPen)
-        painter.setBrush(bg_color)
-        painter.drawRoundedRect(0, 0, self.width(), self.height(), radius, radius)
-
-        if self._checked:
-            knob_x = self.width() - radius
-        else:
-            knob_x = radius
-
-        painter.setBrush(QColor("#ffffff"))
-        painter.drawEllipse(knob_x - knob_radius, radius - knob_radius,
-                            knob_radius * 2, knob_radius * 2)
-        painter.end()
-#
-
 class DownloadWorker(QObject):
 
 
@@ -255,10 +205,6 @@ class QueueWorker(QObject):
 
 
 class MainWindow(QMainWindow):
-
-    # def on_theme_toggled(self, checked: bool):
-    #     theme = "dark" if checked else "light"
-    #     self.change_theme(theme)
 
     def __init__(self, settings=None, app=None):
         super().__init__()
