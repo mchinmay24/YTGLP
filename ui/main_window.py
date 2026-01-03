@@ -394,7 +394,7 @@ class MainWindow(QMainWindow):
 
         self.queue_list = QListWidget()
         queue_layout.addWidget(self.queue_list)
-        
+
 
         # Row for queue manipulation buttons
         queue_btn_row = QHBoxLayout()
@@ -419,23 +419,6 @@ class MainWindow(QMainWindow):
         self.metadata_timer.setSingleShot(True)
         self.metadata_timer.timeout.connect(self.fetch_metadata)
 
-    # ---------- THEME ----------
-
-    def change_theme(self, theme):
-        if self.settings is not None:
-            self.settings.data["theme"] = theme
-            self.settings.save()
-        if self.app:
-            qss_path = os.path.join("resources", "qss", f"{theme}.qss")
-            if os.path.exists(qss_path):
-                with open(qss_path, "r") as f:
-                    self.app.setStyleSheet(f.read())
-
-    # ---------- HISTORY ----------
-
-    def show_history(self):
-        dlg = HistoryDialog(self.history, self)
-        dlg.exec_()
 
     # ---------- HELPERS ----------
 
