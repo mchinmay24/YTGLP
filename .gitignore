@@ -11,3 +11,4 @@ thumbnail.jpg
 ui/*.backup
 core/*.backup
 .vscode/
+settings.json

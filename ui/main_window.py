@@ -66,7 +66,6 @@ class DownloadWorker(QObject):
         trim,
         trim_start,
         trim_end,
-        audio_fx,
         parent=None,
     ):
         super().__init__(parent)
@@ -79,7 +78,6 @@ class DownloadWorker(QObject):
         self.trim = trim
         self.trim_start = trim_start
         self.trim_end = trim_end
-        self.audio_fx = audio_fx
 
     def run(self):
         self.status_changed.emit("Downloading...")
@@ -98,7 +96,6 @@ class DownloadWorker(QObject):
                 trim=self.trim,
                 trim_start=self.trim_start,
                 trim_end=self.trim_end,
-                audio_fx=self.audio_fx,
             )
         finally:
             self.finished.emit(self.url)
@@ -144,7 +141,6 @@ class QueueWorker(QObject):
                     trim=item["trim"],
                     trim_start=item["trim_start"],
                     trim_end=item["trim_end"],
-                    audio_fx=item.get("audio_fx"),
                 )
             finally:
                 self.item_finished.emit(idx, url)
@@ -299,13 +295,10 @@ class MainWindow(QMainWindow):
 
         res_label = QLabel("Resolution:")
         self.resolution_box = QComboBox()
-        self.resolution_box.addItems(["best", "1080p", "720p", "480p", "360p"])
+        self.resolution_box.addItems(["best", "2160p", "1440p", "1080p", "720p", "480p", "360p"])
 
         self.subs_checkbox = QCheckBox("Download subtitles (en)")
 
-        audio_label = QLabel("Audio FX:")
-        self.audio_fx_box = QComboBox()
-        self.audio_fx_box.addItems(["None", "Normalize volume", "Bass boost"])
 
         options_row.addWidget(fmt_label)
         options_row.addWidget(self.format_box)
@@ -315,9 +308,7 @@ class MainWindow(QMainWindow):
         options_row.addSpacing(10)
         options_row.addWidget(self.subs_checkbox)
         options_row.addSpacing(10)
-        options_row.addWidget(audio_label)
-        options_row.addWidget(self.audio_fx_box)
-        options_row.addStretch()
+        
 
         meta_layout.addSpacing(8)
         meta_layout.addLayout(options_row)
@@ -564,7 +555,6 @@ class MainWindow(QMainWindow):
             "trim": self.trim_checkbox.isChecked(),
             "trim_start": self.trim_start_edit.text().strip(),
             "trim_end": self.trim_end_edit.text().strip(),
-            "audio_fx": self.audio_fx_box.currentText(),
         }
         self.queue.append(item)
 
@@ -685,7 +675,6 @@ class MainWindow(QMainWindow):
         trim = self.trim_checkbox.isChecked()
         trim_start = self.trim_start_edit.text().strip()
         trim_end = self.trim_end_edit.text().strip()
-        audio_fx = self.audio_fx_box.currentText()
         out_folder = (
             self.settings.data["output_folder"]
             if self.settings is not None
@@ -712,7 +701,6 @@ class MainWindow(QMainWindow):
             trim,
             trim_start,
             trim_end,
-            audio_fx,
         )
         self._dl_worker.moveToThread(self._dl_thread)
 
