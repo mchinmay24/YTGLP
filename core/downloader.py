@@ -1,7 +1,6 @@
 import subprocess
 import os
 import re
-from typing import Callable, Optional
 
 
 class VideoDownloader:
@@ -32,27 +31,17 @@ class VideoDownloader:
             os.path.join(outdir, "%(title)s.%(ext)s"),
         ]
 
-        # format logic (keep yours)
-        if fmt in ("mp3", "wav"):
+        
+        is_audio = fmt in ("mp3", "wav")
+
+        if is_audio:
             cmd += ["-x", "--audio-format", fmt]
         else:
-            format_selector = "bestvideo+bestaudio/best"
             if resolution != "best":
                 h = resolution.replace("p", "")
-                format_selector = f"bestvideo[height<={h}]+bestaudio/best"
-            if fmt in ("mp4", "webm"):
-                format_selector += f"/{fmt}"
-            cmd += ["-f", format_selector]
+                cmd += ["-f", f"bestvideo[height<={h}]+bestaudio/best"]
 
-        if download_subs:
-            cmd += ["--write-subs", "--sub-langs", "en"]
-
-        if audio_fx:
-            fx = audio_fx.lower()
-            if "normalize" in fx:
-                cmd += ["--postprocessor-args", "-af loudnorm"]
-            elif "bass" in fx:
-                cmd += ["--postprocessor-args", "-af bass=g=10"]
+            cmd += ["--merge-output-format", fmt]
 
         cmd.append(url)
 
@@ -69,8 +58,7 @@ class VideoDownloader:
         for line in process.stdout:
             match = percent_re.search(line)
             if match and progress_callback:
-                percent = max(0, min(100, int(float(match.group(1)))))
-                progress_callback(percent)
+                progress_callback(int(float(match.group(1))))
 
         process.wait()
 

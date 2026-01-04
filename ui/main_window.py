@@ -210,7 +210,7 @@ class MainWindow(QMainWindow):
 
     def _init_ui(self):
         root_layout = QHBoxLayout()
-        root_layout.setContentsMargins(10, 10, 10, 10)
+        root_layout.setContentsMargins(1, 1, 1, 1)
         root_layout.setSpacing(10)
 
 
@@ -579,7 +579,7 @@ class MainWindow(QMainWindow):
         if not self.queue:
             return
 
-        if self._queue_thread is not None and self._queue_thread.isRunning():
+        if self._queue_thread is not None:
             QMessageBox.information(
                 self,
                 "Queue",
@@ -646,6 +646,7 @@ class MainWindow(QMainWindow):
             self.queue_list.clear()
             self.statusBar().showMessage("Queue finished.", 5000)
             self._queue_thread.quit()
+            self._queue_thread = None
 
         self._queue_worker.queue_finished.connect(on_queue_finished)
 
@@ -694,7 +695,7 @@ class MainWindow(QMainWindow):
         # Reset progress bar for new download
         self.progress.setValue(0)
 
-        if self._dl_thread is not None and self._dl_thread.isRunning():
+        if self._dl_thread is not None:
             QMessageBox.information(
                 self, "Download", "A download is already in progress."
             )
@@ -722,6 +723,7 @@ class MainWindow(QMainWindow):
         def on_finished(finished_url: str):
             self.statusBar().showMessage("Download finished.", 5000)
             self._dl_thread.quit()
+            self._dl_thread = None
 
         self._dl_worker.finished.connect(on_finished)
         self._dl_worker.finished.connect(self._dl_worker.deleteLater)
