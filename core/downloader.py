@@ -4,12 +4,6 @@ import re
 from typing import Callable, Optional
 
 
-import os
-import re
-import subprocess
-from typing import Callable, Optional
-
-
 class VideoDownloader:
     """
     CLI-based wrapper around system-installed yt-dlp.
