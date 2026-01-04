@@ -39,29 +39,16 @@ class DependencyDialog(QDialog):
             else:
                 self.install_command = "Install yt-dlp and ffmpeg manually"
 
-        # -------------------------
-        # UI Layout
-        # -------------------------
+        # Text-------------------------
         layout = QVBoxLayout(self)
 
         info_label = QLabel(
             "YTGLP requires the following tools to be installed:\n\n"
-            + "\n".join(f"• {tool}" for tool in missing)
+            + "\n".join(f"• {tool}" for tool in missing) + "\nAfter installation completes, restart this app.\n\nThe following command will be executed:\n\n " + self.install_command
         )
         layout.addWidget(info_label)
-
-        command_label = QLabel("The following command will be executed:")
-        layout.addWidget(command_label)
-
-        self.command_box = QLineEdit(self.install_command)
-        self.command_box.setReadOnly(True)
-        self.command_box.setCursorPosition(0)
-        layout.addWidget(self.command_box)
-
-        note_label = QLabel(
-            "After installation completes, restart this app."
-        )
-        layout.addWidget(note_label)
+        #-----------------------------------
+        
 
         # -------------------------
         # Buttons
@@ -73,7 +60,7 @@ class DependencyDialog(QDialog):
         self.exit_btn = QPushButton("Exit")
 
         btn_row = QHBoxLayout()
-        btn_row.addStretch()
+        # btn_row.addStretch()
         btn_row.addWidget(self.copy_btn)
         btn_row.addWidget(self.install_btn)
         btn_row.addWidget(self.exit_btn)
