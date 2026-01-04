@@ -25,7 +25,7 @@ TERMINALS = {
 
 
 def missing_dependencies():
-    return [tool for tool in REQUIRED_TOOLS if not shutil.which(tool)]
+    return ["\n\n           " + tool for tool in REQUIRED_TOOLS if not shutil.which(tool)]
 
 
 def is_windows():

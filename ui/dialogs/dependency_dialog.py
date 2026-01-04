@@ -45,11 +45,15 @@ class DependencyDialog(QDialog):
 
         # Text-------------------------
         layout = QVBoxLayout(self)
+        layout.setContentsMargins(1, 1, 1, 1)
+        layout.setSpacing(2)
+
 
         info_label = QLabel(
-            "YTGLP requires the following tools to be installed:\n\n"
-            + "\n".join(f"{tool}" for tool in missing) + "\n\nAfter installation completes, restart this app.\n\nThe following command will be executed:\n\n " + self.install_command
+            "           YTGLP requires the following tools to be installed:"
+            + "".join(f"{tool}" for tool in missing) + "\n\n           The following command will be executed:\n\n           " + self.install_command + "\n\n           After successful installation, RESTART this app."
         )
+        
         layout.addWidget(info_label)
         #-----------------------------------
         
