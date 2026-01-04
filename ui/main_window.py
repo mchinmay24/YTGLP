@@ -183,24 +183,6 @@ class MainWindow(QMainWindow):
 
         self._init_ui()
 
-    # ---------- DRAG & DROP  I hate why It exists
-
-    def dragEnterEvent(self, event):
-        if event.mimeData().hasText():
-            text = event.mimeData().text()
-            if "youtube.com" in text or "youtu.be" in text:
-                event.acceptProposedAction()
-                return
-        event.ignore()
-
-    def dropEvent(self, event):
-        text = event.mimeData().text().strip()
-        if not text:
-            return
-        # take first token that hopefully looks like a URL
-        candidate = text.split()[0]
-        self.url_input.setText(candidate)
-        event.acceptProposedAction()
 
     # ---------- UI SETUP ----------
 
