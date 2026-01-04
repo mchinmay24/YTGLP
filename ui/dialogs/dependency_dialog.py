@@ -16,15 +16,19 @@ from core.dependencies import (
     detect_terminal,
 )
 
+from PyQt5.QtCore import Qt
+
+
 
 class DependencyDialog(QDialog):
+    
     def __init__(self, missing, parent=None):
         super().__init__(parent)
-
+        self.setWindowFlags(self.windowFlags() | Qt.Window)
         self.setWindowTitle("Missing Dependencies")
         self.setModal(True)
-        self.resize(480, 240)
-
+        self.setFixedSize(480, 240)
+        
         # -------------------------
         # Determine install command
         # -------------------------
@@ -44,7 +48,7 @@ class DependencyDialog(QDialog):
 
         info_label = QLabel(
             "YTGLP requires the following tools to be installed:\n\n"
-            + "\n".join(f"• {tool}" for tool in missing) + "\nAfter installation completes, restart this app.\n\nThe following command will be executed:\n\n " + self.install_command
+            + "\n".join(f"{tool}" for tool in missing) + "\n\nAfter installation completes, restart this app.\n\nThe following command will be executed:\n\n " + self.install_command
         )
         layout.addWidget(info_label)
         #-----------------------------------
@@ -58,14 +62,12 @@ class DependencyDialog(QDialog):
             "Install with winget and Exit" if is_windows() else "Install and Exit"
         )
         self.exit_btn = QPushButton("Exit")
-
         btn_row = QHBoxLayout()
-        # btn_row.addStretch()
         btn_row.addWidget(self.copy_btn)
         btn_row.addWidget(self.install_btn)
         btn_row.addWidget(self.exit_btn)
-
         layout.addLayout(btn_row)
+        
 
         # -------------------------
         # Signals
@@ -97,6 +99,4 @@ class DependencyDialog(QDialog):
             subprocess.Popen(
                 terminal_args + ["bash", "-c", cmd]
             )
-
-        # Exit app after launching installer
         self.accept()
