@@ -43,6 +43,16 @@ class VideoDownloader:
 
             cmd += ["--merge-output-format", fmt]
 
+
+        if download_subs and not is_audio:
+            cmd += [
+                "--write-subs",
+                "--write-auto-subs",
+                "--sub-langs", "en.*",
+                "--convert-subs", "srt",
+                "--embed-subs",
+            ]
+
         cmd.append(url)
 
         process = subprocess.Popen(

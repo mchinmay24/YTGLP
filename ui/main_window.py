@@ -1,6 +1,10 @@
 import os
 import re
-
+from core.downloader import VideoDownloader
+from core.metadata import MetadataFetcher
+from core.clipboard_watcher import ClipboardWatcher
+from functools import partial
+from PyQt5.QtGui import QPixmap, QPainter, QColor, QPen, QDesktopServices
 from PyQt5.QtWidgets import (
     QWidget,
     QMainWindow,
@@ -22,7 +26,6 @@ from PyQt5.QtWidgets import (
     QListWidgetItem,
     QGraphicsOpacityEffect,
 )
-from PyQt5.QtGui import QPixmap, QDesktopServices
 from PyQt5.QtCore import (
     Qt,
     QThread,
@@ -32,20 +35,6 @@ from PyQt5.QtCore import (
     QPropertyAnimation,
     QEasingCurve,
     QUrl,
-)
-
-from core.downloader import VideoDownloader
-from core.metadata import MetadataFetcher
-from core.clipboard_watcher import ClipboardWatcher
-from PyQt5.QtGui import QPixmap, QPainter, QColor, QPen
-from PyQt5.QtCore import (
-    Qt,
-    QThread,
-    QObject,
-    pyqtSignal,
-    QTimer,
-    QPropertyAnimation,
-    QEasingCurve,
 )
 
 class DownloadWorker(QObject):
@@ -198,13 +187,24 @@ class MainWindow(QMainWindow):
 
         top_row = QHBoxLayout()
         title = QLabel("Youtube Video Downloader")
-        title.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
+        title.setAlignment(Qt.AlignVCenter)
         title.setStyleSheet("font-size: 22px; font-weight: bold;")
         top_row.addWidget(title)
         top_row.addStretch()
+        
 
 
         # URL row
+
+        self.download_button = QPushButton("Download")
+        self.download_button.setStyleSheet(
+            "QPushButton { background-color: #4527a0 }"
+        )
+        self.download_button.clicked.connect(self.download_current)
+
+        self.add_queue_btn = QPushButton("Add to Queue")
+        self.add_queue_btn.clicked.connect(self.add_to_queue)
+
         url_row = QHBoxLayout()
         self.url_input = QLineEdit()
         self.url_input.setPlaceholderText("Enter or drop a YouTube video URL…")
@@ -216,27 +216,94 @@ class MainWindow(QMainWindow):
         clear_btn = QPushButton("Clear")
         clear_btn.clicked.connect(self.clear_url)
 
+        url_row.addSpacing(10)
+        url_row.addWidget(self.download_button)
         url_row.addWidget(self.url_input, stretch=1)
+        url_row.addWidget(self.add_queue_btn)
         url_row.addWidget(paste_btn)
         url_row.addWidget(clear_btn)
         left_layout.addLayout(url_row)
+        url_row.addSpacing(10)
 
 
         # Row beneath URL: Download + Add to Queue
         actions_row = QHBoxLayout()
-        self.download_button = QPushButton("Download")
-        self.download_button.setStyleSheet(
-            "QPushButton { font-size: 14px; padding: 6px 18px; }"
-        )
-        self.download_button.clicked.connect(self.download_current)
 
-        self.add_queue_btn = QPushButton("Add to Queue")
-        self.add_queue_btn.clicked.connect(self.add_to_queue)
+        fmt_label = QLabel("Format:")
+        self.format_box = QComboBox()
+        self.format_box.addItems(["mp4", "mp3", "webm", "wav"])
 
-        actions_row.addWidget(self.download_button)
-        actions_row.addWidget(self.add_queue_btn)
-        actions_row.addStretch()
+        res_label = QLabel("Resolution:")
+        self.resolution_box = QComboBox()
+        self.resolution_box.addItems(["best", "2160p", "1440p", "1080p", "720p", "480p", "360p"])
+
+        self.subs_checkbox = QCheckBox("Download subtitles (en)")
+
+        self.trim_checkbox = QCheckBox("Trim")
+        self.trim_start_edit = QLineEdit("00:00:00")
+        self.trim_end_edit = QLineEdit("")
+        self.trim_start_edit.setPlaceholderText("Start (hh:mm:ss)")
+        self.trim_end_edit.setPlaceholderText("End (hh:mm:ss)")
+        
+
+        actions_row.addSpacing(10)
+        actions_row.addWidget(fmt_label)
+        actions_row.addWidget(self.format_box)
+        actions_row.addWidget(res_label)
+        actions_row.addWidget(self.resolution_box)
+        actions_row.addWidget(self.subs_checkbox)
+        actions_row.addWidget(self.trim_checkbox)
+        actions_row.addWidget(QLabel("From:"))
+        actions_row.addWidget(self.trim_start_edit)
+        actions_row.addWidget(QLabel("To:"))
+        actions_row.addWidget(self.trim_end_edit)
+        
         left_layout.addLayout(actions_row)
+
+        output_row = QHBoxLayout()
+        out_folder = (
+            self.settings.data["output_folder"]
+            if self.settings is not None
+            else os.getcwd()
+        )
+        self.output_label = QLabel(f"Output: {out_folder}")
+        self.output_label.setStyleSheet("color: #ffffff;")
+        self.output_label.setWordWrap(True)
+        
+
+        self.downloadFolder = QPushButton("Downloads")
+        self.videoFolder = QPushButton("Videos")
+        self.musicFolder = QPushButton("Music")
+        self.desktopFolder = QPushButton("Desktop")
+        self.output_button = QPushButton("Custom Folder…")
+        
+        self.output_button.clicked.connect(self.select_output)
+
+        
+
+        output_row.addWidget(self.output_label, stretch=1)
+        output_row.addWidget(self.videoFolder)
+        output_row.addWidget(self.musicFolder)
+        output_row.addWidget(self.downloadFolder)
+        output_row.addWidget(self.desktopFolder)
+        output_row.addWidget(self.output_button)
+        output_row.setSpacing(10)
+        left_layout.addLayout(output_row)
+
+        self.downloadFolder.clicked.connect(
+            partial(self.set_output_to_system_folder, "downloads")
+        )
+        self.videoFolder.clicked.connect(
+            partial(self.set_output_to_system_folder, "videos")
+        )
+        self.musicFolder.clicked.connect(
+            partial(self.set_output_to_system_folder, "music")
+        )
+        self.desktopFolder.clicked.connect(
+            partial(self.set_output_to_system_folder, "desktop")
+        )
+
+
 
         # Preview card: thumbnail + metadata + options inside
         card = QFrame()
@@ -249,7 +316,7 @@ class MainWindow(QMainWindow):
 
         # Thumbnail
         self.thumbnail_label = QLabel("No preview")
-        self.thumbnail_label.setAlignment(Qt.AlignCenter)
+        # self.thumbnail_label.setAlignment(Qt.AlignCenter)
         self.thumbnail_label.setFixedSize(320, 180)
         self.thumbnail_label.setStyleSheet(
             "background-color: #222; color: #aaa;"
@@ -258,9 +325,9 @@ class MainWindow(QMainWindow):
 
         # Metadata + options
         meta_layout = QVBoxLayout()
-        self.title_label = QLabel("Title: –")
-        self.uploader_label = QLabel("Uploader: –")
-        self.duration_label = QLabel("Duration: –")
+        self.title_label = QLabel("Title: ")
+        self.uploader_label = QLabel("Channel: ")
+        self.duration_label = QLabel("Duration: ")
 
         for lbl in (self.title_label, self.uploader_label, self.duration_label):
             lbl.setStyleSheet("font-size: 14px;")
@@ -269,31 +336,8 @@ class MainWindow(QMainWindow):
         meta_layout.addWidget(self.uploader_label)
         meta_layout.addWidget(self.duration_label)
 
-        # Options inside preview card
-        options_row = QHBoxLayout()
-        fmt_label = QLabel("Format:")
-        self.format_box = QComboBox()
-        self.format_box.addItems(["mp4", "mp3", "webm", "wav"])
-
-        res_label = QLabel("Resolution:")
-        self.resolution_box = QComboBox()
-        self.resolution_box.addItems(["best", "2160p", "1440p", "1080p", "720p", "480p", "360p"])
-
-        self.subs_checkbox = QCheckBox("Download subtitles (en)")
-
-
-        options_row.addWidget(fmt_label)
-        options_row.addWidget(self.format_box)
-        options_row.addSpacing(10)
-        options_row.addWidget(res_label)
-        options_row.addWidget(self.resolution_box)
-        options_row.addSpacing(10)
-        options_row.addWidget(self.subs_checkbox)
-        options_row.addSpacing(10)
-        
-
         meta_layout.addSpacing(8)
-        meta_layout.addLayout(options_row)
+        
         meta_layout.addSpacerItem(
             QSpacerItem(20, 40, QSizePolicy.Minimum, QSizePolicy.Expanding)
         )
@@ -314,27 +358,6 @@ class MainWindow(QMainWindow):
         trim_row.addWidget(self.trim_start_edit)
         trim_row.addWidget(QLabel("To:"))
         trim_row.addWidget(self.trim_end_edit)
-        trim_row.addStretch()
-        left_layout.addLayout(trim_row)
-
-        # Output folder row
-        output_row = QHBoxLayout()
-        out_folder = (
-            self.settings.data["output_folder"]
-            if self.settings is not None
-            else os.getcwd()
-        )
-        self.output_label = QLabel(f"Output: {out_folder}")
-        self.output_label.setStyleSheet("color: #ccc;")
-        self.output_label.setWordWrap(True)
-
-        self.output_button = QPushButton("Change Folder…")
-        self.output_button.clicked.connect(self.select_output)
-
-        output_row.addWidget(self.output_label, stretch=1)
-        output_row.addWidget(self.output_button)
-        left_layout.addLayout(output_row)
-
 
         # Progress bar
         self.progress = QProgressBar()
@@ -393,6 +416,39 @@ class MainWindow(QMainWindow):
 
 
     # ---------- HELPERS ----------
+
+    def highlight_folder_button(self, active_btn):
+        for btn in (
+            self.downloadFolder,
+            self.videoFolder,
+            self.musicFolder,
+            self.desktopFolder,
+        ):
+            btn.setStyleSheet("")
+
+        active_btn.setStyleSheet("background-color: #5e35b1")
+
+
+    def set_output_to_system_folder(self, folder_name):
+        home = os.path.expanduser("~")
+
+        folder_map = {
+            "downloads": os.path.join(home, "Downloads"),
+            "videos": os.path.join(home, "Videos"),
+            "music": os.path.join(home, "Music"),
+            "desktop": os.path.join(home, "Desktop"),
+        }
+
+        path = folder_map.get(folder_name.lower())
+        if not path:
+            return
+
+        os.makedirs(path, exist_ok=True)
+
+        self.settings.data["output_folder"] = path
+        self.settings.save()
+        self.output_label.setText(f"Output: {path}")
+
 
     def paste_from_clipboard(self):
         from PyQt5.QtWidgets import QApplication
@@ -470,7 +526,7 @@ class MainWindow(QMainWindow):
             return
 
         self.title_label.setText(f"Title: {info.get('title', 'Unknown')}")
-        self.uploader_label.setText(f"Uploader: {info.get('uploader', 'Unknown')}")
+        self.uploader_label.setText(f"Channel : {info.get('uploader', 'Unknown')}")
 
         duration_sec = info.get("duration", 0)
         human = self.format_duration(duration_sec)
@@ -506,7 +562,7 @@ class MainWindow(QMainWindow):
 
         self.queue_panel.setVisible(True)
         # Grow the window horizontally a bit to make space for the queue
-        self.resize(self.width() + 300, self.height())
+        # self.resize(self.width(), self.height())
 
         # Setup opacity effect for fade-in
         effect = QGraphicsOpacityEffect(self.queue_panel)
