@@ -25,6 +25,9 @@ from PyQt5.QtWidgets import (
     QDialog,
     QListWidgetItem,
     QGraphicsOpacityEffect,
+    QTimeEdit,
+    QSpinBox,
+    QAbstractSpinBox,
 )
 from PyQt5.QtCore import (
     Qt,
@@ -35,6 +38,7 @@ from PyQt5.QtCore import (
     QPropertyAnimation,
     QEasingCurve,
     QUrl,
+    QTime,
 )
 
 class DownloadWorker(QObject):
@@ -230,10 +234,12 @@ class MainWindow(QMainWindow):
         actions_row = QHBoxLayout()
 
         fmt_label = QLabel("Format:")
+        fmt_label.setStyleSheet("background-color: transparent")
         self.format_box = QComboBox()
         self.format_box.addItems(["mp4", "mp3", "webm", "wav"])
 
         res_label = QLabel("Resolution:")
+        res_label.setStyleSheet("background-color: transparent")
         self.resolution_box = QComboBox()
         self.resolution_box.addItems(["best", "2160p", "1440p", "1080p", "720p", "480p", "360p"])
 
@@ -244,8 +250,42 @@ class MainWindow(QMainWindow):
         self.trim_end_edit = QLineEdit("")
         self.trim_start_edit.setPlaceholderText("Start (hh:mm:ss)")
         self.trim_end_edit.setPlaceholderText("End (hh:mm:ss)")
-        
 
+        self.fromtime = QLabel("From:")
+        self.fhour = QSpinBox()
+        self.fhour.setFixedWidth(25)
+        self.fhour.setRange(0, 999)
+
+        self.fmin = QSpinBox()
+        self.fmin.setFixedWidth(20)
+        self.fmin.setRange(0, 59)
+
+        self.fsec = QSpinBox()
+        self.fsec.setFixedWidth(20)
+        self.fsec.setRange(0, 59)
+
+        self.endtime = QLabel("Till:")
+        self.ehour = QSpinBox()
+        self.ehour.setFixedWidth(25)
+        self.ehour.setRange(0, 999)
+
+        self.emin = QSpinBox()
+        self.emin.setFixedWidth(20)
+        self.emin.setRange(0, 59)
+
+        self.esec = QSpinBox()
+        self.esec.setFixedWidth(20)
+        self.esec.setRange(0, 59)
+
+        
+        self.fhour.setButtonSymbols(QAbstractSpinBox.NoButtons)
+        self.fmin.setButtonSymbols(QAbstractSpinBox.NoButtons)
+        self.fsec.setButtonSymbols(QAbstractSpinBox.NoButtons)
+
+        self.ehour.setButtonSymbols(QAbstractSpinBox.NoButtons)
+        self.emin.setButtonSymbols(QAbstractSpinBox.NoButtons)
+        self.esec.setButtonSymbols(QAbstractSpinBox.NoButtons)
+        
         actions_row.addSpacing(10)
         actions_row.addWidget(fmt_label)
         actions_row.addWidget(self.format_box)
@@ -253,10 +293,20 @@ class MainWindow(QMainWindow):
         actions_row.addWidget(self.resolution_box)
         actions_row.addWidget(self.subs_checkbox)
         actions_row.addWidget(self.trim_checkbox)
-        actions_row.addWidget(QLabel("From:"))
-        actions_row.addWidget(self.trim_start_edit)
-        actions_row.addWidget(QLabel("To:"))
-        actions_row.addWidget(self.trim_end_edit)
+        # actions_row.addWidget(self.time_edit)
+        actions_row.addWidget(self.fromtime)
+        actions_row.addWidget(self.fhour)
+        actions_row.addWidget(self.fmin)
+        actions_row.addWidget(self.fsec)
+
+        actions_row.addWidget(self.endtime)
+        actions_row.addWidget(self.ehour)
+        actions_row.addWidget(self.emin)
+        actions_row.addWidget(self.esec)
+        # actions_row.addWidget(QLabel("From:"))
+        # actions_row.addWidget(self.trim_start_edit)
+        # actions_row.addWidget(QLabel("To:"))
+        # actions_row.addWidget(self.trim_end_edit)
         
         left_layout.addLayout(actions_row)
 
@@ -266,21 +316,21 @@ class MainWindow(QMainWindow):
             if self.settings is not None
             else os.getcwd()
         )
-        self.output_label = QLabel(f"Output: {out_folder}")
-        self.output_label.setStyleSheet("color: #ffffff;")
+        self.output_label = QLabel(f"Download Directory: {out_folder}")
+        self.output_label.setStyleSheet("color: #ffffff; margin: 0 0 0 10px; border-radius: 5px")
         self.output_label.setWordWrap(True)
         
 
-        self.downloadFolder = QPushButton("Downloads")
+        self.downloadFolder = QPushButton("Do#2bff00wnloads")
         self.videoFolder = QPushButton("Videos")
         self.musicFolder = QPushButton("Music")
         self.desktopFolder = QPushButton("Desktop")
-        self.output_button = QPushButton("Custom Folder…")
         
+        self.output_button = QPushButton("Custom Folder…")
         self.output_button.clicked.connect(self.select_output)
 
         
-
+        
         output_row.addWidget(self.output_label, stretch=1)
         output_row.addWidget(self.videoFolder)
         output_row.addWidget(self.musicFolder)
@@ -345,19 +395,6 @@ class MainWindow(QMainWindow):
         card_layout.addLayout(meta_layout)
         left_layout.addWidget(card)
 
-        # Trim options (before download)
-        trim_row = QHBoxLayout()
-        self.trim_checkbox = QCheckBox("Trim after download")
-        self.trim_start_edit = QLineEdit("00:00:00")
-        self.trim_end_edit = QLineEdit("")
-        self.trim_start_edit.setPlaceholderText("Start (hh:mm:ss)")
-        self.trim_end_edit.setPlaceholderText("End (hh:mm:ss)")
-
-        trim_row.addWidget(self.trim_checkbox)
-        trim_row.addWidget(QLabel("From:"))
-        trim_row.addWidget(self.trim_start_edit)
-        trim_row.addWidget(QLabel("To:"))
-        trim_row.addWidget(self.trim_end_edit)
 
         # Progress bar
         self.progress = QProgressBar()
@@ -416,17 +453,6 @@ class MainWindow(QMainWindow):
 
 
     # ---------- HELPERS ----------
-
-    def highlight_folder_button(self, active_btn):
-        for btn in (
-            self.downloadFolder,
-            self.videoFolder,
-            self.musicFolder,
-            self.desktopFolder,
-        ):
-            btn.setStyleSheet("")
-
-        active_btn.setStyleSheet("background-color: #5e35b1")
 
 
     def set_output_to_system_folder(self, folder_name):
